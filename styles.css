@@ -104,12 +104,21 @@ h1 {
     border: 2px solid #e6b120;
 }
 
-.toolbar {
+.toolbar-wrapper {
     display: flex;
+    justify-content: space-between;
+}
+
+.toolbar {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-content: center;
 }
 
 .toolbar > button {
     display:inline-block;
+    height: auto;
     padding:8px 16px;
     border:1px solid #eeeef3;
     border-radius:4px;
@@ -118,7 +127,7 @@ h1 {
     color:#3f3f3f;
     text-align:center;
     font-weight: 600;
-    transition: all 0.2s;
+    transition: all 0.05s;
     background-color: #f4f4f8;
 }
 
@@ -127,6 +136,11 @@ h1 {
     background-color:#fff;
 }
 
-.toolbar > .clear-button {
-    
+.toolbar > button.selected {
+    color:#000;
+    background-color:#fff;
+}
+
+.fa-solid {
+    pointer-events: none;
 }

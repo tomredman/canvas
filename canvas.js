@@ -1,10 +1,9 @@
-//import Rect from './shapes/rect';
-
 let canvas;
 let context;
 let shapes = [];
 let shapesInFlight = [];
 let currentColor;
+let currentTool = 'rect';
 let dpi;
 
 document.addEventListener('DOMContentLoaded', (event) => {
@@ -26,18 +25,10 @@ const loadCanvas = () => {
 }
 
 const updateCanvasSize = () => {
-  // Make it visually fill the positioned parent
-  // canvas.style.width ='100%';
-  // canvas.style.height='100%';
-  // // then set the internal size to match
-  // canvas.width  = canvas.offsetWidth;
-  // canvas.height = canvas.offsetHeight;
-
   let style_height = +getComputedStyle(canvas).getPropertyValue("height").slice(0, -2);
   let style_width = +getComputedStyle(canvas).getPropertyValue("width").slice(0, -2);
   canvas.setAttribute('height', style_height * dpi);
   canvas.setAttribute('width', style_width * dpi);
-
   draw();
 }
 
@@ -62,11 +53,41 @@ const handleColorClicked = (event) => {
 };
 
 const setupToolbar = () => {
-  const clearButton = document.getElementById("toolbar-clear-button");
-  clearButton.addEventListener('click', handleClearButtonClicked);
+  document.getElementById("toolbar-pointer-button").addEventListener('click', handleToolButtonClicked);
+  document.getElementById("toolbar-rect-button").addEventListener('click', handleToolButtonClicked);
+  document.getElementById("toolbar-circle-button").addEventListener('click', handleToolButtonClicked);
+  document.getElementById("toolbar-line-button").addEventListener('click', handleToolButtonClicked);
+  document.getElementById("toolbar-clear-button").addEventListener('click', handleToolButtonClicked);
 }
 
-const handleClearButtonClicked = () => {
+const handleToolButtonClicked = (event) => {
+  const toolButton = event.target;
+  const tool = toolButton.getAttribute('data-tool');
+  switch(tool) {
+    case 'clear':
+      clearCanvas();
+      break;
+    default:
+      selectTool(tool);
+      break;
+  }
+}
+
+const selectTool = (tool) => {
+  let toolButtons = document.querySelectorAll(".toolbar > button");
+  toolButtons.forEach((toolButton) => {
+    const clickedTool = toolButton.getAttribute('data-tool');
+    if (clickedTool === tool) {
+      toolButton.classList.add("selected");
+      currentTool = clickedTool;
+    }
+    else {
+      toolButton.classList.remove("selected");
+    }
+  });
+}
+
+const clearCanvas = () => {
   shapes = [];
   draw();
 }
@@ -92,9 +113,21 @@ const setupMouseListener = () => {
 
   document.addEventListener('mousemove', (event) => { 
     if (dragging) {
-      //drawGhost(startX, startY, event.clientX, event.clientY);
       shapesInFlight = [];
-      shapesInFlight.push(new Rect(canvas, context, currentColor, startX, startY, event.clientX, event.clientY))
+
+      switch (currentTool) {
+        case 'rect':
+          shapesInFlight.push(new Rect(canvas, context, currentColor, startX, startY, event.clientX, event.clientY));
+          break;
+        case 'circle':
+          shapesInFlight.push(new Circle(canvas, context, currentColor, startX, startY, getDistance(startX, startY, event.clientX, event.clientY)));
+          break;
+        case 'line':
+          shapesInFlight.push(new Line(canvas, context, currentColor, startX, startY, event.clientX, event.clientY));
+          break;
+        default:
+          break;
+      }
       draw();
     }
   });
@@ -105,9 +138,27 @@ const setupMouseListener = () => {
     endX = event.clientX;
     endY = event.clientY;
     shapesInFlight = [];
-    shapes.push(new Rect(canvas, context, currentColor, startX, startY, endX, endY))
+    switch (currentTool) {
+      case 'rect':
+        shapes.push(new Rect(canvas, context, currentColor, startX, startY, endX, endY));
+        break;
+      case 'circle':
+        shapes.push(new Circle(canvas, context, currentColor, startX, startY, getDistance(startX, startY, endX, endY)));
+        break;
+      case 'line':
+        shapes.push(new Line(canvas, context, currentColor, startX, startY, endX, endY));
+        break;
+      default:
+        break;
+    }
+
     draw();
   });
+}
+
+const getDistance = (x1, y1, x2, y2) => {
+  let distance = Math.sqrt(((x2-x1)*(x2-x1)) + ((y2-y1)*(y2-y1)));
+  return distance;
 }
 
 const draw = () => {
@@ -132,7 +183,7 @@ class Rect {
   }
 
   draw() {
-    //const rect = this.canvas.getBoundingClientRect()
+    //const rect = this.canvas.getBoundingClientRect() //TODO
     let x1 = (this.x1 - this.canvas.offsetLeft) * dpi
     let y1 = (this.y1 - this.canvas.offsetTop) * dpi
     let x2 = (this.x2 - this.canvas.offsetLeft) * dpi
@@ -153,6 +204,77 @@ class Rect {
     else {
       this.ctx.fillStyle = this.fill;
       this.ctx.fillRect(x1, y1, x2-x1, y2-y1);
+    }
+  }
+}
+
+class Circle {
+  constructor(canvas, ctx, fill, centerX, centerY, radius) {
+    this.circle = new Path2D();
+    this.canvas = canvas;
+    this.ctx = ctx;
+    this.fill = fill;
+    this.centerX = centerX;
+    this.centerY = centerY;
+    this.radius = radius * dpi; 
+  }
+
+  draw() {
+
+    let centerX = (this.centerX - this.canvas.offsetLeft) * dpi
+    let centerY = (this.centerY - this.canvas.offsetTop) * dpi
+
+    this.circle.arc(centerX, centerY, this.radius, 0, 2 * Math.PI, false);
+
+    if (this.stroke) {
+      this.ctx.globalAlpha = 0.2;
+      this.ctx.fillStyle = this.fill;
+      this.ctx.fill(this.circle);
+      this.ctx.globalAlpha = 1.0;
+
+      this.ctx.lineWidth = 1 * dpi;
+      this.ctx.strokeStyle = this.fill;
+      this.ctx.stroke(this.circle);
+    }
+    else {
+      this.ctx.fillStyle = this.fill;
+      this.ctx.fill(this.circle);
+    }
+  }
+}
+
+class Line {
+  constructor(canvas, ctx, fill, x1, y1, x2, y2) {
+    this.line = new Path2D();
+    this.canvas = canvas;
+    this.ctx = ctx;
+    this.fill = fill;
+    this.x1 = x1;
+    this.y1 = y1;
+    this.x2 = x2;
+    this.y2 = y2;
+  }
+
+  draw() {
+    let x1 = (this.x1 - this.canvas.offsetLeft) * dpi
+    let y1 = (this.y1 - this.canvas.offsetTop) * dpi
+    let x2 = (this.x2 - this.canvas.offsetLeft) * dpi
+    let y2 = (this.y2 - this.canvas.offsetTop) * dpi
+
+    this.ctx.lineWidth = 3 * dpi;
+    this.ctx.strokeStyle = this.fill;
+    this.ctx.lineCap = "butt";
+
+    if (this.stroke) {
+      this.ctx.globalAlpha = 0.2;
+    }
+
+    this.line.moveTo(x1, y1);
+    this.line.lineTo(x2, y2);
+    this.ctx.stroke(this.line);
+
+    if (this.stroke) {
+      this.ctx.globalAlpha = 1.0;
     }
   }
 }
